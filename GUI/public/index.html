@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Deteksi Plat Kendaraan Niaga</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        background-image: url("/bg.jpg"); /* Replace with your background image path */
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        color: #444;
+      }
+      #selectedImage {
+        display: none;
+        max-width: 100%;
+        max-height: 300px; /* Set maximum height as needed */
+        margin-top: 20px;
+        border: 1px solid #ccc; /* Adding border for visibility */
+        border-radius: 5px;
+
+        /* Center the image horizontally */
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      #detectionResult {
+        display: none;
+        max-width: 100%;
+        max-height: 300px; /* Set maximum height as needed */
+        margin-top: 20px;
+        border: 1px solid #ccc; /* Adding border for visibility */
+        border-radius: 5px;
+
+        /* Center the image horizontally */
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .container {
+        width: 60%;
+        margin: 100px auto;
+        padding: 20px;
+        background-color: rgba(240, 240, 240, 0.8);
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        text-align: center;
+      }
+
+      h1 {
+        font-size: 2.5em;
+        margin-bottom: 20px;
+      }
+
+      h3 {
+        font-size: 1.5em;
+        margin-bottom: 30px;
+      }
+
+      input[type="file"] {
+        padding: 10px;
+        margin-bottom: 20px;
+      }
+
+      button {
+        padding: 10px 20px;
+        background-color: #555;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+
+      button:hover {
+        background-color: #333;
+      }
+
+      #commandText {
+        display: none;
+        margin-top: 20px;
+        text-align: left;
+        padding: 10px;
+        background-color: #ddd;
+        border-radius: 5px;
+      }
+
+      /* Centering the progress bar horizontally */
+      .progress-bar-container {
+        width: 300px; /* Adjust the width as needed */
+        height: 20px; /* Adjust the height as needed */
+        border: 1px solid #ccc;
+        overflow: hidden;
+        display: flex;
+        justify-content: center; /* Center horizontally */
+        margin: 0 auto; /* This will center it within the parent container */
+      }
+
+      /* Style for the progress bar itself */
+      .progress-bar {
+        width: 0;
+        height: 100%;
+        background-color: rgb(73, 73, 73); /* Change color as desired */
+        animation: progress-animation 10s linear forwards; /* Animation for filling */
+        transform-origin: left; /* Start the animation from the left */
+      }
+
+      /* Keyframes for the progress bar animation */
+      @keyframes progress-animation {
+        100% {
+          width: 100%; /* Fills the progress bar to 100% */
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Deteksi Plat Nomor Kendaraan Niaga</h1>
+      <h3>YOLOv8</h3>
+      <input
+        type="file"
+        id="fileInput"
+        accept="image/*"
+        onchange="previewImage(event)"
+      />
+      <button onclick="detectPlate()">Detect Plate</button>
+      <div class="row"><p id="commandText"></p></div>
+
+      <!-- progress bar -->
+      <div
+        class="progress-bar-container"
+        id="progressContainer"
+        style="display: none"
+      >
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+
+      <!-- preview gambar -->
+      <div class="row">
+        <img
+          style="align-items: center"
+          id="selectedImage"
+          src="#"
+          alt="Selected Image"
+        />
+        <img
+          id="detectionResult"
+          src="#"
+          alt="Detection Result"
+          style="display: none"
+        />
+      </div>
+    </div>
+
+    <script>
+      function displayDetectionResult(folderName, fileName) {
+        const detectionResult = document.getElementById("detectionResult");
+        // detectionResult.src = '/predict/result15/truk4.png';
+
+        detectionResult.src = `/predict/${folderName}/${fileName}`;
+        detectionResult.style.display = "block";
+
+        // Hide the progress bar after displaying the detection result
+        var progressContainer = document.getElementById("progressContainer");
+        progressContainer.style.display = "none";
+
+        console.log(folderName, fileName);
+      }
+
+      //preview gambar yang dipilih
+      function previewImage(event) {
+        var fileInput = event.target;
+        var file = fileInput.files[0];
+        var selectedImage = document.getElementById("selectedImage");
+
+        if (file) {
+          selectedImage.style.display = "block";
+          var reader = new FileReader();
+          reader.onload = function (event) {
+            selectedImage.src = event.target.result;
+          };
+          reader.readAsDataURL(file);
+        } else {
+          selectedImage.style.display = "none";
+        }
+      }
+
+      //proses kirim gambar ke node.js
+      function detectPlate() {
+        var fileInput = document.getElementById("fileInput");
+        var file = fileInput.files[0];
+
+        if (file) {
+          var filePath = `D:\\dataset_fix\\${file.name}`;
+          var command = `yolo task=detect mode=predict model="D:\\best.pt" conf=0.3 source=${filePath} project="C:/Users/Billy/OneDrive/Desktop/ANPR/public/predict" name=result save_crop=True`;
+          // var command = `yolo task=detect mode=predict model="D:\\best.pt" conf=0.3 source=${filePath} save=True`;
+          fetch("/executeCommand", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ command }),
+          })
+            .then((response) => response.text())
+            .then((latestFolder) => {
+              commandText.innerText = "Latest Folder: " + latestFolder;
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+              // Handle errors here
+            });
+          //command text
+          var commandText = document.getElementById("commandText");
+          commandText.style.display = "block";
+          commandText.innerText = "Launching Command: " + command;
+
+          // progress bar hilang setelah klik "detect plate"
+          var progressContainer = document.getElementById("progressContainer");
+          progressContainer.style.display = "block";
+        } else {
+          alert("Please select an image first.");
+        }
+        setTimeout(() => {
+          fetch("/getLatestFolder")
+            .then((response) => response.text())
+            .then((folderName) => {
+              // Fetch the latest folder name, then fetch and display the image
+              displayDetectionResult(folderName, file.name);
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+            });
+        }, 15000); // jeda 10 detik
+      }
+    </script>
+  </body>
+</html>
